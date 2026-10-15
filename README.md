@@ -38,6 +38,30 @@
 
 **本地已验证的业务子链路：** 患者预约 → 医生录入病历并完成接诊 → 自动生成问诊费账单及明细 → 患者查看预约、病历和账单；已结合浏览器页面和 PostgreSQL 数据核对。上述验证不涵盖完整支付回调、检查报告解读、发药流程或外部大模型调用。
 
+## 系统演示截图
+
+以下为**本地独立演示环境**的真实页面截图，使用虚构的患者、医生及业务数据。截图展示的范围为预约、接诊、电子病历和账单明细，不代表完整支付流程或外部 AI 服务已通过端到端验证。
+
+### 1. 患者端：预约记录
+
+![患者预约记录：心血管内科、王明医生、已完成](docs/screenshots/patient-appointment.png)
+
+### 2. 医生端：接诊管理
+
+![医生接诊列表：预约记录已完成](docs/screenshots/doctor-appointment.png)
+
+> 医生端列表显示 UTC 时间（`Z`），患者端显示本地时间；截图中的 `02:00Z` 对应北京时间 `10:00`。
+
+### 3. 患者端：电子病历
+
+![患者电子病历：虚构测试病历及接诊信息](docs/screenshots/medical-record.png)
+
+### 4. 患者端：费用账单
+
+![患者账单：100 元问诊费及收费明细，待支付](docs/screenshots/patient-bill.png)
+
+> 演示账单处于**待支付**状态，本次验证范围是账单自动生成、明细持久化及患者侧查询，不包含实际收款或支付回调成功。
+
 ## 技术栈
 
 - **后端：** Python 3.12、FastAPI、Pydantic、SQLAlchemy（异步）、Alembic
@@ -63,6 +87,7 @@ smart-medical-appointment-system/
 │   └── README.md         # 后端专项说明
 ├── medical-admin/        # 医疗管理后台
 ├── medical-client/       # 患者端
+├── docs/screenshots/    # 虚构数据的实际运行截图
 └── README.md             # 本文件
 ```
 
