@@ -45,10 +45,10 @@ class BackofficeAuthService(AuthBase):
                 scope="backoffice",  # 区分 client 和 backoffice
                 expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
             )
-            refresh_token = AuthBase.create_refresh_token(str(admin.id))
+            refresh_token = AuthBase.create_refresh_token(str(admin.id), scope="backoffice_refresh")
 
             # 存储新的 refresh token
-            hashed_token = AuthBase.hash_token(refresh_token)
+            hashed_token = AuthBase.refresh_token_fingerprint(refresh_token)
             token = AdminToken(
                 admin_id=admin.id,
                 token=hashed_token,
@@ -65,28 +65,44 @@ class BackofficeAuthService(AuthBase):
             }
 
     @staticmethod
-    async def refresh_token(db: AsyncSession, refresh_token: str) -> Dict:
-        """刷新管理员 token"""
-        payload = AuthBase.verify_token(refresh_token, scope="refresh")
+    async def _get_active_refresh_token(db: AsyncSession, refresh_token: str) -> Optional[AdminToken]:
+        """核验后台令牌及对应的有效会话和账号。"""
+        payload = AuthBase.verify_token(refresh_token, scope="backoffice_refresh")
         if not payload:
-            raise APIException(status_code=401, message="Invalid refresh token")
+            return None
 
-        admin_id = payload.get("sub")
-        token_query = select(AdminToken).where(
-            (AdminToken.admin_id == admin_id) &
-            (AdminToken.is_active == True)
+        subject = payload.get("sub")
+        if not isinstance(subject, str):
+            return None
+        try:
+            admin_id = int(subject)
+        except ValueError:
+            return None
+        if not 0 < admin_id <= 2_147_483_647:
+            return None
+
+        token_query = select(AdminToken).join(Admin, Admin.id == AdminToken.admin_id).where(
+            AdminToken.admin_id == admin_id,
+            AdminToken.token == AuthBase.refresh_token_fingerprint(refresh_token),
+            AdminToken.is_active == True,
+            AdminToken.expires_at > datetime.now(UTC),
+            Admin.is_active == True,
         )
         result = await db.execute(token_query)
-        token = result.scalar_one_or_none()
+        return result.scalar_one_or_none()
 
-        if not token or not AuthBase.verify_token_hash(refresh_token, token.token):
+    @staticmethod
+    async def refresh_token(db: AsyncSession, refresh_token: str) -> Dict:
+        """刷新管理员 token"""
+        token = await BackofficeAuthService._get_active_refresh_token(db, refresh_token)
+        if not token:
             raise APIException(status_code=401, message="Invalid or expired refresh token")
 
         token.last_used_at = datetime.now(UTC)
         await db.commit()
 
         access_token = AuthBase.create_access_token(
-            admin_id,
+            str(token.admin_id),
             scope="backoffice",
             expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
@@ -94,18 +110,8 @@ class BackofficeAuthService(AuthBase):
 
     @staticmethod
     async def logout(db: AsyncSession, refresh_token: str) -> None:
-        """管理员登出"""
-        payload = AuthBase.verify_token(refresh_token, scope="backoffice")
-        if not payload:
-            return  # 忽略无效 token
-
-        admin_id = payload.get("sub")
-        token_query = select(AdminToken).where(
-            (AdminToken.admin_id == admin_id) &
-            (AdminToken.is_active == True)
-        )
-        result = await db.execute(token_query)
-        token = result.scalar_one_or_none()
+        """仅撤销匹配的有效会话；无效或重复退出不修改其他会话。"""
+        token = await BackofficeAuthService._get_active_refresh_token(db, refresh_token)
 
         if token:
             token.is_active = False

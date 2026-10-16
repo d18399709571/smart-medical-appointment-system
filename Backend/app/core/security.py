@@ -3,6 +3,7 @@ from typing import Optional, Dict
 from jose import jwt, JWTError
 from app.core.config import settings
 import uuid
+import hashlib
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -29,7 +30,9 @@ class AuthBase:
         return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     @staticmethod
-    def create_refresh_token(subject: str, expires_delta: Optional[timedelta] = None) -> str:
+    def create_refresh_token(subject: str, scope: str, expires_delta: Optional[timedelta] = None) -> str:
+        if scope not in ("client_refresh", "backoffice_refresh"):
+            raise ValueError("Invalid refresh token scope")
         if expires_delta:
             expire = datetime.now(UTC) + expires_delta
         else:
@@ -39,7 +42,7 @@ class AuthBase:
             "exp": expire,
             "sub": str(subject),
             "jti": str(uuid.uuid4()),
-            "scope": "refresh"
+            "scope": scope
         }
         return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
@@ -60,6 +63,10 @@ class AuthBase:
     @staticmethod
     def hash_token(token: str) -> str:
         return pwd_context.hash(token)
+
+    @staticmethod
+    def refresh_token_fingerprint(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     @staticmethod
     def verify_token_hash(plain_token: str, hashed_token: str) -> bool:

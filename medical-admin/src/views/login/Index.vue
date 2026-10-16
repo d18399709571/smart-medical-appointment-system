@@ -24,7 +24,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '../../api/auth'
-import { setToken } from '../../utils/request'
+import { setToken, setRefreshToken } from '../../utils/request'
 import { loadCurrentAdmin } from '../../stores/auth'
 import { getRoleHomePath } from '../../utils/roleAccess'
 
@@ -44,6 +44,7 @@ async function handleLogin() {
   try {
     const result = await login({ email: form.email, password: form.password })
     setToken(result.access_token)
+    setRefreshToken(result.refresh_token)
     const admin = await loadCurrentAdmin()
     ElMessage.success('登录成功')
     await router.push(getRoleHomePath(admin?.role))

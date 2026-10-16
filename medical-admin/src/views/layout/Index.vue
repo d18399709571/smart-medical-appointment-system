@@ -53,7 +53,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { clearToken } from '../../utils/request'
+import { ElMessage } from 'element-plus'
+import { clearToken, getRefreshToken } from '../../utils/request'
+import { logout } from '../../api/auth'
 import { currentAdmin, clearCurrentAdmin } from '../../stores/auth'
 import { getRoleLabel } from '../../utils/roleAccess'
 
@@ -68,10 +70,26 @@ const isCashier = computed(() => currentAdmin.value?.role === 'cashier')
 const isLab = computed(() => currentAdmin.value?.role === 'lab')
 const roleLabel = computed(() => getRoleLabel(currentAdmin.value?.role))
 
-function handleLogout() {
-  clearToken()
-  clearCurrentAdmin()
-  router.push('/login')
+async function handleLogout() {
+  const refreshToken = getRefreshToken()
+  let serverConfirmed = false
+  try {
+    if (refreshToken) {
+      await logout(refreshToken)
+      serverConfirmed = true
+    }
+  } catch {
+    // 请求错误已由拦截器提示，仍需完成本地退出。
+  } finally {
+    clearToken()
+    clearCurrentAdmin()
+    if (serverConfirmed) {
+      ElMessage.success('已退出登录，服务器已确认退出')
+    } else {
+      ElMessage.warning('已在本地退出，服务器会话撤销未确认')
+    }
+    await router.push('/login')
+  }
 }
 </script>
 
