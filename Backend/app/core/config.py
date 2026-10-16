@@ -86,9 +86,12 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"  # 可选，指定编码
+        hide_input_in_errors = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if not self.SECRET_KEY.strip():
+            raise ValueError("SECRET_KEY must be set and must not be blank")
         # 在所有属性从环境变量加载完成后设置 Celery URL
         if self.REDIS_PASSWORD:
             redis_url = (
