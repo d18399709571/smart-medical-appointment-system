@@ -1,7 +1,7 @@
 from fastapi import UploadFile
 from datetime import datetime
 from docx import Document
-from typing import Dict, List
+from typing import List
 from urllib.parse import urlparse
 import boto3
 from botocore.exceptions import ClientError
@@ -254,44 +254,6 @@ def validate_remote_url(url: str) -> bool:
         raise APIException(
             status_code=400,
             message=f"Verification of remote URL failed: {str(e)}"
-        )
-
-
-def get_temporary_credentials() -> Dict:
-    """
-    获取 AWS S3 的临时访问凭证
-
-    Returns:
-        Dict: 包含临时凭证的字典，包括 access key、secret key 和 session token
-    """
-    # 若为中国区域，需要特别指定 endpoint_url
-    region = settings.AWS_REGION
-    endpoint_url = None
-    if region.startswith('cn-'):
-        endpoint_url = f"https://sts.{region}.amazonaws.com.cn"
-    sts_client = boto3.client(
-        'sts',
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=region,
-        endpoint_url=endpoint_url
-    )
-
-    try:
-        response = sts_client.get_session_token(
-            DurationSeconds=3600  # 凭证有效期 1 小时
-        )
-
-        return {
-            'key': response['Credentials']['AccessKeyId'],
-            'secret': response['Credentials']['SecretAccessKey'],
-            'token': response['Credentials']['SessionToken']
-        }
-
-    except Exception as e:
-        raise APIException(
-            status_code=500,
-            message=f"Failed to get temporary credentials: {str(e)}"
         )
 
 

@@ -97,11 +97,6 @@ BACKOFFICE_ROUTES = [
         tags=["backoffice-admin"]
     ),
     RouteConfig(
-        module_path="app.api.backoffice.v1.aws",
-        prefix=f"{settings.API_V1_STR}/backoffice/aws",
-        tags=["backoffice-aws"]
-    ),
-    RouteConfig(
         module_path="app.api.backoffice.v1.department",
         prefix=f"{settings.API_V1_STR}/backoffice/departments",
         tags=["backoffice-department"]
