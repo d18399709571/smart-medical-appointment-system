@@ -22,21 +22,25 @@ from app.exceptions.http_exceptions import APIException
 
 logger = logging.getLogger("report_chat")
 
-CONV_KEY_PREFIX = "report_chat:conversation"
+CONV_KEY_PREFIX = "report_chat:v2:conversation"
 CONV_MAX_MESSAGES = 16  # 最多保留最近 8 轮问答
 CONV_EXPIRE = 3600  # 对话历史保留 1 小时
 
 
-async def get_conversation_history(session_id: str) -> list[dict]:
+def conversation_key(patient_id: int, report_id: int, session_id: str) -> str:
+    return f"{CONV_KEY_PREFIX}:{patient_id}:{report_id}:{session_id}"
+
+
+async def get_conversation_history(patient_id: int, report_id: int, session_id: str) -> list[dict]:
     """从 Redis 读取对话历史（LPUSH 头插，返回的是倒序）"""
-    key = f"{CONV_KEY_PREFIX}:{session_id}"
+    key = conversation_key(patient_id, report_id, session_id)
     raw = await redis_client.redis.lrange(key, 0, CONV_MAX_MESSAGES - 1)
     return [json.loads(msg) for msg in raw]
 
 
-async def save_turn(session_id: str, user_msg: str, ai_msg: str) -> None:
+async def save_turn(patient_id: int, report_id: int, session_id: str, user_msg: str, ai_msg: str) -> None:
     """保存一轮问答并刷新过期时间"""
-    key = f"{CONV_KEY_PREFIX}:{session_id}"
+    key = conversation_key(patient_id, report_id, session_id)
     await redis_client.redis.lpush(
         key, json.dumps({"role": "assistant", "content": ai_msg}, ensure_ascii=False)
     )
@@ -81,9 +85,9 @@ async def chat(
         )
 
     if not session_id:
-        session_id = f"{patient_id}:{report_id}:{uuid.uuid4().hex[:8]}"
+        session_id = str(uuid.uuid4())
 
-    history = await get_conversation_history(session_id)
+    history = await get_conversation_history(patient_id, report_id, session_id)
 
     # RAG 检索医学参考资料
     search_query = f"{report.type} {user_message}"
@@ -119,7 +123,7 @@ async def chat(
         )
         reply = "抱歉，本次回答未能通过内容审核。建议您携带报告咨询医生获得专业解读。仅供参考。"
 
-    await save_turn(session_id, user_message, reply)
+    await save_turn(patient_id, report_id, session_id, user_message, reply)
 
     turn_count = len(history) // 2 + 1
 
@@ -152,9 +156,9 @@ async def chat_stream(
         )
 
     if not session_id:
-        session_id = f"{patient_id}:{report_id}:{uuid.uuid4().hex[:8]}"
+        session_id = str(uuid.uuid4())
 
-    history = await get_conversation_history(session_id)
+    history = await get_conversation_history(patient_id, report_id, session_id)
     chunks = await rag_service.search(
         db,
         query=f"{report.type} {user_message}",
@@ -191,5 +195,5 @@ async def chat_stream(
         reply = "抱歉，本次回答未能通过内容审核。建议您携带报告咨询医生获得专业解读。仅供参考。"
         yield {"type": "replace", "content": reply}
 
-    await save_turn(session_id, user_message, reply)
+    await save_turn(patient_id, report_id, session_id, user_message, reply)
     yield {"type": "done", "session_id": session_id, "turn_count": turn_count}
