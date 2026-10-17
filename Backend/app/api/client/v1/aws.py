@@ -8,7 +8,7 @@ from app.schemas.client.aws import (
     PresignedUrlResponse,
     PresignedDownloadUrlResponse
 )
-from app.services.common import s3_service
+from app.services.common.s3_service import s3_service
 
 router = APIRouter()
 
