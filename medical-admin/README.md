@@ -1,5 +1,36 @@
-# Vue 3 + TypeScript + Vite
+# 医疗管理后台
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+基于 Vue 3、TypeScript、Vite、Vue Router、Element Plus 和 Axios，为医疗业务角色提供操作页面。配套 [FastAPI 后端](../Backend/README.md)，使用范围见[项目使用说明](../README.md#项目使用说明)。
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 角色与页面
+
+| 角色 | 当前页面与业务 |
+| --- | --- |
+| 超级管理员 | 科室、知识库、后台账号、医生、药品、AI 调用监控 |
+| 医生 | 本人接诊列表、预约状态、病历录入与处方 |
+| 药师 | 待发药处方及发药操作 |
+| 收费员 | 账单、窗口现金/刷卡结算及经办记录 |
+| 检验科 | 检查报告录入与相关状态 |
+| 普通管理员 | 个人中心；不自动获得上述专用业务页面权限 |
+
+前端根据后台角色选择首页与可访问路由；最终身份、权限和状态检查由后端执行。登录保存 Access/Refresh Token，退出会请求服务端 Logout；网络异常时仍可清理本地登录状态，不应把本地退出等同于服务器确认撤销。
+
+## 本地开发参考
+
+在本目录执行，Node.js 版本需满足锁定依赖要求：
+
+```powershell
+npm ci
+$env:BACKEND_PROXY_TARGET = "http://127.0.0.1:8001"
+npm run dev -- --host 127.0.0.1 --port 3000 --strictPort
+```
+
+`BACKEND_PROXY_TARGET` 控制 `/api` 代理目标，不会改变 Vite 监听端口。后端需另行准备配置、数据库及合成角色账号；仓库不提供可公开使用的真实密码。不要把前端变量当作后端密钥存放位置。
+
+`npm run build` 执行 `vue-tsc -b && vite build`，这是类型检查与构建命令，不等于业务接口或所有角色页面已通过测试。
+
+## 已验证与未验证
+
+阶段 C 在独立环境使用真实浏览器，以合成收费员登录并查看已结算的 25 元药费和 100 元问诊费，登录、身份、账单接口返回 200。[实际截图](../docs/screenshots/admin-business-smoke.png)。本次后台前端仅做该最小冒烟；医生、药师核心操作通过后端 HTTP/PostgreSQL 验证，未宣称所有后台页面已浏览器验收。
+
+完整 A–C 结果、替身使用及未测范围见[首页](../README.md#独立环境验收结果)。
