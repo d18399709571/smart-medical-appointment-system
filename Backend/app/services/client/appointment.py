@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
 from app.models.department import Department
@@ -68,7 +69,12 @@ class AppointmentService:
             status="pending"
         )
         db.add(appointment)
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError as exc:
+            if getattr(exc.orig.__cause__, "constraint_name", None) != "uq_appointments_doctor_time_active":
+                raise
+            raise APIException(status_code=409, message="Doctor already booked at this time") from exc
         await db.refresh(appointment)
 
         return await AppointmentService._to_response(db, appointment)
@@ -91,7 +97,7 @@ class AppointmentService:
         appointment_query = select(Appointment).where(
             Appointment.id == appointment_id,
             Appointment.patient_id == patient_id
-        )
+        ).with_for_update().execution_options(populate_existing=True)
         appointment = (await db.execute(appointment_query)).scalar_one_or_none()
 
         if not appointment:

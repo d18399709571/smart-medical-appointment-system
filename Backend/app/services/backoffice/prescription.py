@@ -148,7 +148,8 @@ class PrescriptionService:
         prescription_id: int
     ) -> Optional[PrescriptionResponse]:
         """药师发药"""
-        prescription_query = select(Prescription).where(Prescription.id == prescription_id)
+        prescription_query = (select(Prescription).where(Prescription.id == prescription_id)
+                              .with_for_update().execution_options(populate_existing=True))
         prescription = (await db.execute(prescription_query)).scalar_one_or_none()
 
         if not prescription:

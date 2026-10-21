@@ -126,6 +126,8 @@ smart-medical-appointment-system/
 
 ## 本地运行参考
 
+最小隔离 API 演示、随机合成配置、迁移、合成账号和真实 PostgreSQL 并发检查命令见 [本地最小演示](docs/LOCAL_DEMO.md)。该流程使用独立 Compose，不启动历史部署配置中的扩展服务；实际验证及限制见文档和本轮审核包。
+
 **环境：** Python 3.12、Docker Desktop / Docker Compose V2、满足前端依赖要求的 Node.js 与 npm。以下为开发运行参考；项目使用范围见[项目使用说明](#项目使用说明)。
 
 1. 在 `Backend/.env.example` 的基础上准备自己的私有 `.env`，设置 PostgreSQL、Redis、JWT 等必要参数；按 Docker Compose 文件要求设置运行目录 `RUNTIME_DIR`。**切勿将真实 `.env`、密钥、日志、数据库文件提交到 GitHub。**

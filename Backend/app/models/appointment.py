@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, Integer, String, ForeignKey, TIMESTAMP, Index, text
 from sqlalchemy.sql import func
 from .base import BaseModel
 
@@ -6,6 +6,11 @@ from .base import BaseModel
 class Appointment(BaseModel):
     """预约记录"""
     __tablename__ = "appointments"
+
+    __table_args__ = (
+        Index("uq_appointments_doctor_time_active", "doctor_id", "appointment_time",
+              unique=True, postgresql_where=text("status <> 'cancelled'")),
+    )
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     patient_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

@@ -93,8 +93,7 @@ class BillService:
         payment_method: str = "cash"
     ) -> Optional[BillResponse]:
         """收费员窗口结算账单（记录经办人与收款方式，便于对账追溯）"""
-        bill_query = select(Bill).where(Bill.id == bill_id)
-        bill = (await db.execute(bill_query)).scalar_one_or_none()
+        bill = await payment.lock_bill(db, bill_id)
 
         if not bill:
             return None

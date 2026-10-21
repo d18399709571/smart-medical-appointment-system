@@ -70,7 +70,7 @@ class AppointmentService:
         appointment_query = select(Appointment).where(
             Appointment.id == appointment_id,
             Appointment.doctor_id == doctor_id
-        )
+        ).with_for_update().execution_options(populate_existing=True)
         appointment = (await db.execute(appointment_query)).scalar_one_or_none()
 
         if not appointment:

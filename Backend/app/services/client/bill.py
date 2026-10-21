@@ -43,11 +43,7 @@ class BillService:
         这里只创建 pending 流水，不直接改账单状态；
         账单由支付回调（app.schedule.jobs.payment_callback）确认后才置为已付。
         """
-        bill_query = select(Bill).where(
-            Bill.id == bill_id,
-            Bill.patient_id == patient_id
-        )
-        bill = (await db.execute(bill_query)).scalar_one_or_none()
+        bill = await payment.lock_bill(db, bill_id, patient_id=patient_id)
 
         if not bill:
             return None

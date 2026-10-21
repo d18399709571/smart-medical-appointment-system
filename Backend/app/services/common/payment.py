@@ -22,6 +22,14 @@ def generate_order_no() -> str:
     return f"PAY{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}{random.randint(100000, 999999)}"
 
 
+async def lock_bill(db: AsyncSession, bill_id: int, patient_id: Optional[int] = None) -> Optional[Bill]:
+    """All payment writers lock Bill before PaymentOrder, until their existing commit."""
+    query = select(Bill).where(Bill.id == bill_id)
+    if patient_id is not None:
+        query = query.where(Bill.patient_id == patient_id)
+    return (await db.execute(query.with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
+
+
 async def get_success_order(db: AsyncSession, bill_id: int) -> Optional[PaymentOrder]:
     """查询账单的成功支付流水"""
     query = select(PaymentOrder).where(
@@ -75,17 +83,20 @@ async def confirm_order(db: AsyncSession, order_id: int) -> Tuple[str, Optional[
     Returns:
         (结果状态, 失败原因)
     """
-    order = (
-        await db.execute(select(PaymentOrder).where(PaymentOrder.id == order_id))
-    ).scalar_one_or_none()
-    if not order:
+    bill_id = await db.scalar(select(PaymentOrder.bill_id).where(PaymentOrder.id == order_id))
+    if bill_id is None:
         return "not_found", None
 
+    # The first read does not lock Order. Never invert the shared Bill -> Order order.
+    bill = await lock_bill(db, bill_id)
+    order = (await db.execute(select(PaymentOrder).where(PaymentOrder.id == order_id)
+                             .with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
+    if not order:
+        return "not_found", None
     # 幂等：回调重复到达时直接返回，不重复写库
     if order.status != "pending":
         return f"already_{order.status}", None
 
-    bill = (await db.execute(select(Bill).where(Bill.id == order.bill_id))).scalar_one_or_none()
     if not bill:
         await _fail_order(db, order, "Bill not found")
         return "failed", "Bill not found"
